@@ -47,8 +47,20 @@ The optional [Vulcan MOTD cleanup playbook](etc/ansible/playbooks/89-motd.yaml) 
 
 Edit `/etc/vulcan-motd/motd.conf` (root-owned: the cache service sources it as shell code). Set `CLUSTER_NAME`, `SITE_TITLE`, `SITE_SUBTITLE`, `LOGO_FILE` and `LINKS_FILE` to replace the default name, branding and links. The logo is plain text; links are one `Label:|https://example.org` per line. Put notices in `announce.txt`; an empty file hides the section. See the [sample config](etc/vulcan-motd/motd.conf) for storage paths, thresholds and cache settings.
 
-## Support
+## 🤝 Support
 
-Vulcan cluster support: [Digital Research Alliance of Canada](mailto:support@tech.alliancecan.ca). Repository maintainers: [Rahim Khoja](mailto:khoja1@ualberta.ca) and [Karim Ali](mailto:kali2@ualberta.ca), University of Alberta Research Computing.
+Many Bothans died to bring us this information. This project is provided as-is, but reasonable questions may be answered based on my coffee intake or mood. ;)
 
-[Changelog](CHANGELOG.md) · [MIT License](LICENSE)
+Feel free to open an issue or email **[khoja1@ualberta.ca](mailto:khoja1@ualberta.ca)** or **[kali2@ualberta.ca](mailto:kali2@ualberta.ca)** for U of A related deployments.
+
+## 📜 License
+
+This project is released under the **MIT License** — use it, modify it, distribute it, include it in proprietary software. Keep the copyright notice. That's it.
+
+**Full license text:** [MIT License](./LICENSE)
+
+## 🧠 About University of Alberta Research Computing
+
+The [Research Computing Group](https://www.ualberta.ca/en/information-services-and-technology/research-computing/index.html) supports high-performance computing, data-intensive research, and advanced infrastructure for researchers at the University of Alberta and across Canada.
+
+We help design and operate compute environments that power innovation — from AI training clusters to national research infrastructure.
