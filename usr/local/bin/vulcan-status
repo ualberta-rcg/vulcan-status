@@ -56,7 +56,7 @@ HEARTBEAT=${HEARTBEAT:-$CACHE_DIR/heartbeat}
 CLUSTER_TTL=${CLUSTER_TTL:-900}        # max age (s) before cluster falls back to live
 # Per-user cache for slow-changing blocks (fairshare, storage). Lives under the
 # user's own runtime dir (tmpfs, owned by the user, no privilege needed).
-USER_CACHE_DIR=${USER_CACHE_DIR:-${XDG_RUNTIME_DIR:-/tmp}/vulcan-motd}
+USER_CACHE_DIR=${USER_CACHE_DIR:-${XDG_RUNTIME_DIR:+$XDG_RUNTIME_DIR/vulcan-motd}}
 FAIRSHARE_TTL=${FAIRSHARE_TTL:-900}    # fairshare cache age (s)
 STORAGE_TTL=${STORAGE_TTL:-900}        # storage cache age (s)
 
@@ -255,6 +255,39 @@ fi
 
 # fresh FILE TTL -> 0 if file exists and is newer than TTL seconds, else 1
 cache_fresh() { [ -r "$1" ] && [ -z "$(find "$1" -mmin +"$(( ($2+59)/60 ))" 2>/dev/null)" ]; }
+
+# Cache only in a private directory beneath a private parent. Validate the
+# ancestors first so a shared writable directory cannot redirect the path.
+private_cache_file() {
+    local dir=$USER_CACHE_DIR parent part path='' meta owner='' mode=0
+    local -a parts
+    [[ $EUID != 0 && $NO_CACHE = 0 && $dir = /*/* && $dir != *//* && $dir != */ && $dir != *$'\n'* ]] || return 1
+    parent=${dir%/*}
+    IFS=/ read -r -a parts <<< "${parent#/}"
+    for part in "${parts[@]}"; do
+        [[ -n $part && $part != . && $part != .. ]] || return 1
+        path+=/$part
+        [[ ! -L $path && -d $path ]] || return 1
+        meta=$(stat -c '%u:%a' -- "$path") || return 1
+        owner=${meta%:*}; mode=${meta#*:}
+        (( owner == EUID || owner == 0 )) || return 1
+        # A root-owned sticky ancestor (e.g. /tmp) protects owned entries.
+        (( !(8#$mode & 022) || (owner == 0 && (8#$mode & 01000)) )) || return 1
+    done
+    [[ $owner = "$EUID" && $mode = 700 && ${dir##*/} != . && ${dir##*/} != .. ]] || return 1
+    mkdir -m 700 -- "$dir" 2>/dev/null || [[ -d $dir ]] || return 1
+    [[ ! -L $dir && $(stat -c '%u:%a' -- "$dir") = "$EUID:700" ]] || return 1
+    [[ ! -L $dir/$1 && ( ! -e $dir/$1 || -f $dir/$1 ) ]] || return 1
+    printf '%s/%s\n' "$dir" "$1"
+}
+
+write_private_cache() {
+    local file=$1 tmp
+    tmp=$(mktemp -- "$file.XXXXXXXX") || return 1
+    printf '%s\n' "$2" > "$tmp" && mv -fT -- "$tmp" "$file" && return 0
+    rm -f -- "$tmp"
+    return 1
+}
 
 # cluster key=value cache -> shell vars (defensive parse). Returns 0 only if it
 # populated enough fields to render. Honors CLUSTER_TTL via cache_fresh.
@@ -557,10 +590,10 @@ render_fairshare_one() { # account fairshare levelfs
 }
 
 render_fairshare() {
-    local data='' cached=0 fc="$USER_CACHE_DIR/fairshare"
-    mkdir -p "$USER_CACHE_DIR" 2>/dev/null
+    local data='' cached=0 fc
+    fc=$(private_cache_file fairshare) || fc=''
     # 1) fresh per-user cache -> use it.
-    if [ "$NO_CACHE" = 0 ] && cache_fresh "$fc" "$FAIRSHARE_TTL"; then
+    if [ -n "$fc" ] && cache_fresh "$fc" "$FAIRSHARE_TTL"; then
         data=$(cat "$fc" 2>/dev/null); [ -n "$data" ] && cached=1
     fi
     # 2) no cache (or stale) and dbd up -> compute live and write atomically.
@@ -569,8 +602,8 @@ render_fairshare() {
         command -v sshare >/dev/null 2>&1 || return 0
         data=$(timeout "$Q_TIMEOUT" sshare -ahP --noheader -u "$TUSER" -o Account,User,Fairshare,LevelFS 2>/dev/null \
                | awk -F'|' -v u="$TUSER" '$2 ~ u && $3 != "" { sub(/^ +/,"",$1); print $1"|"$3"|"$4 }')
-        if [ -n "$data" ]; then
-            printf '%s\n' "$data" > "$fc.tmp.$$" 2>/dev/null && mv -f "$fc.tmp.$$" "$fc" 2>/dev/null
+        if [ -n "$fc" ] && [ -n "$data" ]; then
+            write_private_cache "$fc" "$data" 2>/dev/null
         fi
     fi
     [ -n "$data" ] || return 0
@@ -590,17 +623,17 @@ render_fairshare() {
 
 render_storage() {
     hdr 'Storage'
-    local sc="$USER_CACHE_DIR/storage" rows='' cached=0
-    mkdir -p "$USER_CACHE_DIR" 2>/dev/null
+    local sc rows='' cached=0
+    sc=$(private_cache_file storage) || sc=''
     # 1) fresh per-user cache -> render from it (bars re-rendered at current width).
-    if [ "$NO_CACHE" = 0 ] && cache_fresh "$sc" "$STORAGE_TTL"; then
+    if [ -n "$sc" ] && cache_fresh "$sc" "$STORAGE_TTL"; then
         rows=$(cat "$sc" 2>/dev/null); [ -n "$rows" ] && cached=1
     fi
     # 2) no/stale cache -> gather live (df) and write atomically.
     if [ -z "$rows" ]; then
         rows=$(storage_gather)
-        if [ -n "$rows" ]; then
-            printf '%s\n' "$rows" > "$sc.tmp.$$" 2>/dev/null && mv -f "$sc.tmp.$$" "$sc" 2>/dev/null
+        if [ -n "$sc" ] && [ -n "$rows" ]; then
+            write_private_cache "$sc" "$rows" 2>/dev/null
         fi
     fi
     [ -n "$rows" ] || return 0
