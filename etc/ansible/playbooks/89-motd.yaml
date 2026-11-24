@@ -1,0 +1,21 @@
+---
+- name: Clean up /etc/update-motd.d
+  hosts: localhost
+  become: yes
+
+  tasks:
+    - name: Find all files in /etc/update-motd.d that do not start with 'vulcan_'
+      ansible.builtin.find:
+        paths: /etc/update-motd.d
+        file_type: file
+        patterns: "*"           # Match all files
+        excludes: "vulcan_*"    # Exclude files starting with vulcan_
+      register: files_to_delete
+
+    - name: Delete the matched files
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ files_to_delete.files }}"
+      loop_control:
+        label: "{{ item.path }}" # Keeps the console output clean by only showing the file path
