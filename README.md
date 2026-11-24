@@ -2,7 +2,24 @@
 
 # vulcan-status
 
-## Description
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
+[![Shell](https://img.shields.io/badge/Shell-Bash-4EAA25.svg)](./usr/local/bin/vulcan-status)
+[![Scheduler](https://img.shields.io/badge/Scheduler-Slurm-blue.svg)](https://slurm.schedmd.com/)
+[![Timer](https://img.shields.io/badge/Timer-systemd-orange.svg)](./etc/systemd/system/)
+
+> **Cluster capacity, your Slurm queue, fairshare, and storage — at a glance when you log in.**
+>
+> *Fast on the login path. Silent during file transfers.*
+
+*Developed in the [University of Alberta](https://www.ualberta.ca/en/information-services-and-technology/research-computing/index.html) / [AMII](https://www.amii.ca/) Vulcan environment, and adaptable to any Slurm cluster.*
+
+**Maintained by:** Rahim Khoja ([khoja1@ualberta.ca](mailto:khoja1@ualberta.ca)) and Karim Ali ([kali2@ualberta.ca](mailto:kali2@ualberta.ca))
+
+[Description](#-description) · [Reading the banner](#-reading-the-banner) · [Install](#-install-on-a-login-node) · [Adapt to your site](#-adapt-it-to-your-site) · [Changelog](./CHANGELOG.md) · [Support](#-support)
+
+---
+
+## 📖 Description
 
 `vulcan-status` is a terminal login banner for Slurm clusters. It shows how busy the cluster is, which of your jobs are running or waiting, and storage use across home, scratch and project filesystems. The defaults follow the layout common on Digital Research Alliance of Canada clusters; other Slurm sites can adjust the storage paths, branding and links in the site configuration.
 
@@ -16,7 +33,7 @@ Run `vulcan-status` to see the banner again without logging back in.
 
 </div>
 
-## Reading the banner
+## 📊 Reading the banner
 
 - **Cluster and jobs:** Node, queue, CPU, memory and GPU totals normally come from a snapshot refreshed about every ten minutes. Your own job list comes directly from Slurm.
 - **GPUs:** `avail` counts unallocated GPUs. A node can have a free GPU but too little CPU or memory left for another GPU job. `usable` estimates how many GPUs have those resources too; it doesn't predict when your job will start.
@@ -25,7 +42,7 @@ Run `vulcan-status` to see the banner again without logging back in.
 
 Run `vulcan-status --plain --only cluster` for just the cluster section without color, or `vulcan-status --help` to see the banner with explanations. The login hook stays silent during file transfers. Use `~/.hushlogin` or `VULCAN_MOTD_OFF=1` to skip the automatic banner; you can still run it yourself.
 
-## Install on a login node
+## 🚀 Install on a login node
 
 Requires Bash, GNU coreutils and Slurm client commands. The bundled systemd timer refreshes the cluster snapshot; the login hook checks for an interactive terminal before calling `vulcan-status` to display the banner. From the repository root, install directly or stage the same files in your site's node image:
 
@@ -43,9 +60,18 @@ sudo install -m 0644 etc/profile.d/zz-vulcan-motd.sh /etc/profile.d/
 
 The optional [Vulcan MOTD cleanup playbook](etc/ansible/playbooks/89-motd.yaml) is **not required**. It deletes regular files directly under `/etc/update-motd.d/` unless their names start with `vulcan_`, including site-written notices. Review its `--check` output before opting in.
 
-## Adapt it to your site
+## 🔧 Adapt it to your site
 
 Edit `/etc/vulcan-motd/motd.conf` (root-owned: the cache service sources it as shell code). Set `CLUSTER_NAME`, `SITE_TITLE`, `SITE_SUBTITLE`, `LOGO_FILE` and `LINKS_FILE` to replace the default name, branding and links. The logo is plain text; links are one `Label:|https://example.org` per line. Put notices in `announce.txt`; an empty file hides the section. See the [sample config](etc/vulcan-motd/motd.conf) for storage paths, thresholds and cache settings.
+
+## 🔗 References
+
+- [University of Alberta Research Computing](https://www.ualberta.ca/en/information-services-and-technology/research-computing/index.html)
+- [Digital Research Alliance of Canada Documentation](https://docs.alliancecan.ca/)
+- [Slurm Workload Manager Documentation](https://slurm.schedmd.com/)
+- [Changelog](./CHANGELOG.md)
+
+---
 
 ## 🤝 Support
 
